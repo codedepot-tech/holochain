@@ -431,45 +431,32 @@ impl SourceChain {
         })?;
 
         // Write the entries, headers and ops to the database in one transaction.
-        let author = self.author.clone();
-        let persisted_head = self.persisted_head.clone();
-        self.vault
-            .async_commit(move |txn| {
-                // As at check.
-                let (new_persisted_head, _) = chain_head_db(&txn, author)?;
-                if headers.last().is_none() {
-                    // Nothing to write
-                    return Ok(());
-                }
-                if persisted_head != new_persisted_head {
-                    return Err(SourceChainError::HeadMoved(
-                        Some(persisted_head),
-                        Some(new_persisted_head),
-                    ));
-                }
+        self.vault.conn()?.with_commit_sync(|txn| {
+            // As at check.
+            let (new_persisted_head, _) = chain_head_db(&txn, self.author.clone())?;
+            if headers.last().is_none() {
+                // Nothing to write
+                return Ok(());
+            }
+            if self.persisted_head != new_persisted_head {
+                return Err(SourceChainError::HeadMoved(
+                    Some(self.persisted_head.clone()),
+                    Some(new_persisted_head),
+                ));
+            }
 
-                for entry in entries {
-                    insert_entry(txn, entry)?;
-                }
-                for header in headers {
-                    insert_header(txn, header)?;
-                }
-                for (op, op_hash, op_order, timestamp) in ops {
-                    insert_op_lite(txn, op, op_hash.clone(), true, op_order, timestamp)?;
-                    set_validation_status(
-                        txn,
-                        op_hash.clone(),
-                        holochain_zome_types::ValidationStatus::Valid,
-                    )?;
-                    // TODO: SHARDING: Check if we are the authority here.
-                    // StoreEntry ops with private entries are never gossiped or published
-                    // so we don't need to integrate them.
-                    // TODO: Can anything every depend on a private store entry op? I don't think so.
-                    
-                }
-                SourceChainResult::Ok(())
-            })
-            .await?;
+            for entry in entries {
+                insert_entry(txn, entry)?;
+            }
+            for header in headers {
+                insert_header(txn, header)?;
+            }
+            for (op, op_hash, op_order, timestamp) in ops {
+                insert_op_lite(txn, op, op_hash.clone(), true, op_order, timestamp)?;
+                set_validation_status(txn, op_hash, holochain_zome_types::ValidationStatus::Valid)?;
+            }
+            SourceChainResult::Ok(())
+        })?;
         Ok(())
     }
 }

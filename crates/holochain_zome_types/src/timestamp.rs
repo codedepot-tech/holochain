@@ -198,6 +198,7 @@ impl<D: Into<core::time::Duration>> Sub<D> for &Timestamp {
     }
 }
 
+// TODO: This is not needed, `?` can be used with Option.
 macro_rules! try_opt {
     ($e:expr) => {
         match $e {
