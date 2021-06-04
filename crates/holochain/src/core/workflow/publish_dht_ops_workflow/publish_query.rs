@@ -1,8 +1,9 @@
-use std::time::SystemTime;
-use std::time::UNIX_EPOCH;
+// use std::time::SystemTime;
+// use std::time::UNIX_EPOCH;
 
 use holo_hash::AgentPubKey;
 use holo_hash::DhtOpHash;
+use holochain_sqlite::db::ReadManager;
 use holochain_state::query::prelude::*;
 use holochain_types::dht_op::DhtOp;
 use holochain_types::dht_op::DhtOpHashed;
@@ -15,7 +16,7 @@ use rusqlite::named_params;
 
 use crate::core::workflow::error::WorkflowResult;
 
-use super::MIN_PUBLISH_INTERVAL;
+// use super::MIN_PUBLISH_INTERVAL;
 
 /// Get all dht ops on an agents chain that need to be published.
 /// - Don't publish private entries.
@@ -32,11 +33,9 @@ pub async fn get_ops_to_publish(
     //     .and_then(|epoch| epoch.checked_sub(MIN_PUBLISH_INTERVAL))
     //     .map(|t| t.as_secs())
     //     .unwrap_or(0);
-
-    let results = env
-        .async_reader(move |txn| {
-            let mut stmt = txn.prepare(
-                "
+    let results = env.conn()?.with_reader(|txn| {
+        let mut stmt = txn.prepare(
+            "
             SELECT 
             Header.blob as header_blob,
             Entry.blob as entry_blob,
@@ -54,9 +53,7 @@ pub async fn get_ops_to_publish(
             AND
             (DhtOp.type != :store_entry OR Header.private_entry = 0)
             AND
-            (DhtOp.last_publish_time IS NULL OR DhtOp.last_publish_time <= :earliest_allowed_time)
-            AND
-            (DhtOp.receipt_count IS NULL OR DhtOp.receipt_count < :required_receipt_count)
+            DhtOp.last_publish_time IS NULL
             ",
                 // (DhtOp.last_publish_time IS NULL OR DhtOp.last_publish_time <= :earliest_allowed_time)
                 // AND
@@ -90,8 +87,7 @@ pub async fn get_ops_to_publish(
                 },
             )?;
             WorkflowResult::Ok(r.collect())
-        })
-        .await?;
+        })?;
     tracing::info!(?results);
     results
 }
