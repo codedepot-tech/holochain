@@ -76,7 +76,7 @@ fn conductors_call_remote(num_conductors: usize) {
             envs.push(h.get_p2p_env(space).await);
         }
 
-        exchange_peer_info(envs);
+        exchange_peer_info(envs).await;
 
         // Give a little longer timeout here because they must find each other to pass the test
         let results = call_each_other(&handles[..], 1500).await;
@@ -297,7 +297,7 @@ async fn conductors_gossip_inner(
     }
 
     if share_peers {
-        exchange_peer_info(envs.clone());
+        exchange_peer_info(envs.clone()).await;
     }
 
     // for _ in 0..600 {
@@ -329,7 +329,7 @@ async fn conductors_gossip_inner(
     }
 
     if share_peers {
-        exchange_peer_info(envs.clone());
+        exchange_peer_info(envs.clone()).await;
     }
 
     let all_handles = third_handles
