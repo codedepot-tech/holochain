@@ -42,7 +42,7 @@ mod error;
 #[derive(Clone)]
 pub struct SourceChain {
     scratch: SyncScratch,
-    vault: EnvRead,
+    vault: EnvWrite,
     author: Arc<AgentPubKey>,
     persisted_seq: u32,
     persisted_head: HeaderHash,
@@ -66,7 +66,7 @@ pub struct SourceChainJsonElement {
 }
 
 impl SourceChain {
-    pub fn new(vault: EnvRead, author: AgentPubKey) -> SourceChainResult<Self> {
+    pub fn new(vault: EnvWrite, author: AgentPubKey) -> SourceChainResult<Self> {
         let scratch = Scratch::new().into_sync();
         let author = Arc::new(author);
         let (persisted_head, persisted_seq) = vault
@@ -135,7 +135,7 @@ impl SourceChain {
         let hash = header.as_hash().clone();
 
         // Sign the header.
-        let header = SignedHeaderHashed::new(self.vault.keystore(), header).await?;
+        let header = SignedHeaderHashed::new(&self.vault.keystore(), header).await?;
         let element = Element::new(header, maybe_entry);
 
         // Put into scratch.
@@ -363,7 +363,7 @@ impl SourceChain {
         Ok(elements)
     }
 
-    pub fn flush(&self) -> SourceChainResult<()> {
+    pub async fn flush(&self) -> SourceChainResult<()> {
         // Nothing to write
         if self.scratch.apply(|s| s.is_empty())? {
             return Ok(());
@@ -419,20 +419,24 @@ impl SourceChain {
         })?;
 
         // Write the entries, headers and ops to the database in one transaction.
-        self.vault.conn()?.with_commit(|txn| {
-            // As at check.
-            let (new_persisted_head, _) = chain_head_db(&txn, self.author.clone())?;
-            if headers.last().is_none() {
-                // Nothing to write
-                return Ok(());
-            }
-            if self.persisted_head != new_persisted_head {
-                return Err(SourceChainError::HeadMoved(
-                    Some(self.persisted_head.clone()),
-                    Some(new_persisted_head),
-                ));
-            }
+        let author = self.author.clone();
+        let persisted_head = self.persisted_head.clone();
+        self.vault
+            .async_commit(move |txn| {
+                // As at check.
+                let (new_persisted_head, _) = chain_head_db(&txn, author)?;
+                if headers.last().is_none() {
+                    // Nothing to write
+                    return Ok(());
+                }
+                if persisted_head != new_persisted_head {
+                    return Err(SourceChainError::HeadMoved(
+                        Some(persisted_head),
+                        Some(new_persisted_head),
+                    ));
+                }
 
+<<<<<<< HEAD
             for entry in entries {
                 insert_entry(txn, entry)?;
             }
@@ -445,6 +449,39 @@ impl SourceChain {
             }
             SourceChainResult::Ok(())
         })?;
+=======
+                for entry in entries {
+                    insert_entry(txn, entry)?;
+                }
+                for header in headers {
+                    insert_header(txn, header)?;
+                }
+                for (op, op_hash, op_order, timestamp, visibility) in ops {
+                    let op_type = op.get_type();
+                    insert_op_lite(txn, op, op_hash.clone(), true, op_order, timestamp)?;
+                    set_validation_status(
+                        txn,
+                        op_hash.clone(),
+                        holochain_zome_types::ValidationStatus::Valid,
+                    )?;
+                    // TODO: SHARDING: Check if we are the authority here.
+                    // StoreEntry ops with private entries are never gossiped or published
+                    // so we don't need to integrate them.
+                    // TODO: Can anything every depend on a private store entry op? I don't think so.
+                    if !(op_type == DhtOpType::StoreEntry
+                        && visibility == Some(EntryVisibility::Private))
+                    {
+                        set_validation_stage(
+                            txn,
+                            op_hash,
+                            ValidationLimboStatus::AwaitingIntegration,
+                        )?;
+                    }
+                }
+                SourceChainResult::Ok(())
+            })
+            .await?;
+>>>>>>> a19fa1999... all db writes async
         Ok(())
     }
 }
@@ -500,12 +537,14 @@ pub async fn genesis(
     let (agent_header, agent_entry) = element.into_inner();
     let agent_entry = agent_entry.into_option();
 
-    vault.conn()?.with_commit(|txn| {
-        source_chain::put_raw(txn, dna_header, dna_ops, None)?;
-        source_chain::put_raw(txn, agent_validation_header, avh_ops, None)?;
-        source_chain::put_raw(txn, agent_header, agent_ops, agent_entry)?;
-        SourceChainResult::Ok(())
-    })
+    vault
+        .async_commit(move |txn| {
+            source_chain::put_raw(txn, dna_header, dna_ops, None)?;
+            source_chain::put_raw(txn, agent_validation_header, avh_ops, None)?;
+            source_chain::put_raw(txn, agent_header, agent_ops, agent_entry)?;
+            SourceChainResult::Ok(())
+        })
+        .await
 }
 
 pub fn put_raw(
@@ -589,7 +628,7 @@ async fn _put_db<H: HeaderInner, B: HeaderBuilder<H>>(
     let (header, entry) = element.into_inner();
     let entry = entry.into_option();
     let hash = header.as_hash().clone();
-    vault.conn()?.with_commit(|txn| {
+    vault.conn()?.with_commit_sync(|txn| {
         let (new_head, _) = chain_head_db(txn, author.clone())?;
         if new_head != prev_header {
             return Err(SourceChainError::HeadMoved(
@@ -722,7 +761,7 @@ pub mod tests {
             };
             let header = chain.put(header_builder, Some(entry)).await?;
 
-            chain.flush().unwrap();
+            chain.flush().await.unwrap();
 
             (header, entry_hash)
         };
@@ -763,7 +802,7 @@ pub mod tests {
             };
             let header = chain.put(header_builder, Some(entry)).await?;
 
-            chain.flush().unwrap();
+            chain.flush().await.unwrap();
 
             (header, entry_hash)
         };
@@ -800,7 +839,7 @@ pub mod tests {
             };
             chain.put(header_builder, None).await?;
 
-            chain.flush().unwrap();
+            chain.flush().await.unwrap();
         }
 
         {
@@ -909,7 +948,7 @@ pub mod tests {
             entry_hash: EntryHash::with_data_sync(&entry),
         };
         let h2 = source_chain.put(create, Some(entry)).await.unwrap();
-        source_chain.flush().unwrap();
+        source_chain.flush().await.unwrap();
 
         fresh_reader_test!(vault, |txn| {
             assert_eq!(chain_head_db(&txn, author.clone()).unwrap().0, h2);

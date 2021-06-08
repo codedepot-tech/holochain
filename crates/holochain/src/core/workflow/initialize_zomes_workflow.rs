@@ -38,7 +38,11 @@ where
         initialize_zomes_workflow_inner(workspace.clone(), network, keystore, args).await?;
 
     // --- END OF WORKFLOW, BEGIN FINISHER BOILERPLATE ---
-    workspace.flush()?;
+
+    // only commit if the result was successful
+    if result == InitResult::Pass {
+        workspace.flush().await?;
+    }
     Ok(result)
 }
 
