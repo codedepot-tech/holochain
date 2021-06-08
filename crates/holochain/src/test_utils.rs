@@ -611,6 +611,7 @@ async fn get_counts(envs: &[&EnvWrite]) -> IntegrationStateDumps {
 }
 
 async fn count_integration(env: &EnvWrite) -> IntegrationStateDump {
+<<<<<<< HEAD
     fresh_reader_test(env.clone(), |txn| {
         let integrated = txn
             .query_row(
@@ -629,6 +630,11 @@ async fn count_integration(env: &EnvWrite) -> IntegrationStateDump {
             integrated,
         }
     })
+=======
+    crate::conductor::integration_dump(&env.clone().into())
+        .await
+        .unwrap()
+>>>>>>> cb5c41937... async readers
 }
 
 async fn display_integration(env: &EnvWrite) -> usize {
