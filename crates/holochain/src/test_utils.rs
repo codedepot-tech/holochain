@@ -611,30 +611,9 @@ async fn get_counts(envs: &[&EnvWrite]) -> IntegrationStateDumps {
 }
 
 async fn count_integration(env: &EnvWrite) -> IntegrationStateDump {
-<<<<<<< HEAD
-    fresh_reader_test(env.clone(), |txn| {
-        let integrated = txn
-            .query_row(
-                "SELECT count(hash) FROM DhtOp WHERE when_integrated IS NOT NULL",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        let integration_limbo = txn.query_row("SELECT count(hash) FROM DhtOp WHERE when_integrated IS NULL AND validation_stage = 3", [], |row|row.get(0))
-            .unwrap();
-        let validation_limbo = txn.query_row("SELECT count(hash) FROM DhtOp WHERE when_integrated IS NULL AND (validation_stage IS NULL OR validation_stage < 3)", [], |row|row.get(0))
-            .unwrap();
-        IntegrationStateDump {
-            validation_limbo,
-            integration_limbo,
-            integrated,
-        }
-    })
-=======
     crate::conductor::integration_dump(&env.clone().into())
         .await
         .unwrap()
->>>>>>> cb5c41937... async readers
 }
 
 async fn display_integration(env: &EnvWrite) -> usize {
