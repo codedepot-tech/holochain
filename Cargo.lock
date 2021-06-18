@@ -4646,14 +4646,16 @@ dependencies = [
 
 [[package]]
 name = "sodoken"
-version = "0.0.1-alpha.5"
+version = "0.0.1-alpha.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d756e9ae62581c323c4722f6114b72fbb4e48abf64f7f21cebb36716beffb24"
+checksum = "9e228d84d2c62a7cfebd521c724c7a9470596dc32674cd45a99953cb43d7436d"
 dependencies = [
  "libc",
  "libsodium-sys",
+ "num_cpus",
  "once_cell",
  "parking_lot 0.11.1",
+ "rayon",
  "thiserror",
  "tokio",
 ]
