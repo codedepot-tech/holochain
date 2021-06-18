@@ -38,7 +38,7 @@ async fn test_dht_op_query() {
         for (validation_status, op, when_integrated) in values {
             env.conn()
                 .unwrap()
-                .with_commit(|txn| mutations::insert_op())
+                .with_commit_sync(|txn| mutations::insert_op())
                 .unwrap();
             buf.put(dht_hash.next().unwrap(), value.clone()).unwrap();
             expected.push(value.clone());

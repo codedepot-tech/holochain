@@ -8,7 +8,7 @@ use derive_more::Constructor;
 use holochain_keystore::KeystoreSender;
 use holochain_p2p::HolochainP2pCell;
 use holochain_state::host_fn_workspace::HostFnWorkspace;
-use holochain_types::dna::DnaDef;
+use holochain_types::prelude::*;
 use holochain_zome_types::header::builder;
 use tracing::*;
 
@@ -90,7 +90,7 @@ pub mod tests {
     use crate::core::ribosome::MockRibosomeT;
     use crate::fixt::DnaDefFixturator;
     use crate::fixt::KeystoreSenderFixturator;
-    use crate::fixt::*;
+    use crate::sweettest::*;
     use crate::test_utils::fake_genesis;
     use ::fixt::prelude::*;
     use fixt::Unpredictable;
@@ -98,7 +98,9 @@ pub mod tests {
     use holochain_p2p::HolochainP2pCellFixturator;
     use holochain_state::prelude::test_cache_env;
     use holochain_state::prelude::test_cell_env;
+    use holochain_state::prelude::SourceChain;
     use holochain_types::prelude::DnaDefHashed;
+    use holochain_wasm_test_utils::TestWasm;
     use holochain_zome_types::fake_agent_pubkey_1;
     use holochain_zome_types::CellId;
     use holochain_zome_types::Header;

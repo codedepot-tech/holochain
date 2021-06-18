@@ -94,8 +94,8 @@ where
     _state: CellState,
 }
 
-pub type StopBroadcaster = tokio::sync::broadcast::Sender<()>;
-pub type StopReceiver = tokio::sync::broadcast::Receiver<()>;
+pub(crate) type StopBroadcaster = tokio::sync::broadcast::Sender<()>;
+pub(crate) type StopReceiver = tokio::sync::broadcast::Receiver<()>;
 
 /// A Conductor is a group of [Cell]s
 pub struct Conductor<DS = RealDnaStore, CA = CellConductorApi>
@@ -951,32 +951,6 @@ where
         let source_chain_dump =
             source_chain::dump_state(arc.clone().into(), cell_id.agent_pubkey().clone()).await?;
 
-        let integration_dump = fresh_reader!(arc, |txn| {
-            let integrated = txn.query_row(
-                "SELECT count(hash) FROM DhtOp WHERE when_integrated IS NOT NULL",
-                [],
-                |row| row.get(0),
-            )?;
-            let integration_limbo = txn.query_row("SELECT count(hash) FROM DhtOp WHERE when_integrated IS NULL AND validation_stage = 3", [], |row|row.get(0))?;
-            let validation_limbo = txn.query_row(
-                "
-                SELECT count(hash) FROM DhtOp 
-                WHERE when_integrated IS NULL 
-                AND (
-                    (is_authored = 1 AND validation_stage IS NOT NULL AND validation_stage < 3)
-                    OR 
-                    (is_authored = 0 AND (validation_stage IS NULL OR validation_stage < 3))
-                )
-                ",
-                [],
-                |row| row.get(0),
-            )?;
-            ConductorApiResult::Ok(IntegrationStateDump {
-                validation_limbo,
-                integration_limbo,
-                integrated,
-            })
-        })?;
         let out = JsonDump {
             peer_dump,
             source_chain_dump,
@@ -1042,30 +1016,30 @@ pub async fn integration_dump(vault: &EnvRead) -> ConductorApiResult<Integration
                 |row| row.get(0),
             )?;
             let integration_limbo = txn.query_row(
-            "SELECT count(hash) FROM DhtOp WHERE when_integrated IS NULL AND validation_stage = 3",
-            [],
-            |row| row.get(0),
-        )?;
-            let validation_limbo = txn.query_row(
-                "
-                SELECT count(hash) FROM DhtOp
-                WHERE when_integrated IS NULL
-                AND (
-                    (is_authored = 1 AND validation_stage IS NOT NULL AND validation_stage < 3)
-                    OR
-                    (is_authored = 0 AND (validation_stage IS NULL OR validation_stage < 3))
-                )
-                ",
+                "SELECT count(hash) FROM DhtOp WHERE when_integrated IS NULL AND validation_stage = 3",
                 [],
                 |row| row.get(0),
             )?;
-            ConductorApiResult::Ok(IntegrationStateDump {
-                validation_limbo,
-                integration_limbo,
-                integrated,
-            })
+            let validation_limbo = txn.query_row(
+            "
+                SELECT count(hash) FROM DhtOp 
+                WHERE when_integrated IS NULL 
+                AND (
+                    (is_authored = 1 AND validation_stage IS NOT NULL AND validation_stage < 3)
+                    OR 
+                    (is_authored = 0 AND (validation_stage IS NULL OR validation_stage < 3))
+                )
+                ",
+            [],
+            |row| row.get(0),
+        )?;
+        ConductorApiResult::Ok(IntegrationStateDump {
+            validation_limbo,
+            integration_limbo,
+            integrated,
         })
-        .await
+    })
+    .await
 }
 
 //-----------------------------------------------------------------------------

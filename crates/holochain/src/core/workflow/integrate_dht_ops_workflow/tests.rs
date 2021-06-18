@@ -772,7 +772,7 @@ async fn commit_entry<'env>(
         let mut workspace = workspace_lock.write().await;
         env.conn()
             .unwrap()
-            .with_commit(|writer| workspace.flush_to_txn_ref(writer))
+            .with_commit_sync(|writer| workspace.flush_to_txn_ref(writer))
             .unwrap();
     }
 
@@ -853,7 +853,7 @@ async fn create_link(
         let mut workspace = workspace_lock.write().await;
         env.conn()
             .unwrap()
-            .with_commit(|writer| workspace.flush_to_txn_ref(writer))
+            .with_commit_sync(|writer| workspace.flush_to_txn_ref(writer))
             .unwrap();
     }
 
@@ -1076,7 +1076,7 @@ async fn test_wasm_api_without_integration_delete() {
         workspace.source_chain.put(delete, None).await.unwrap();
         env.conn()
             .unwrap()
-            .with_commit(|writer| workspace.flush_to_txn(writer))
+            .with_commit_sync(|writer| workspace.flush_to_txn(writer))
             .unwrap();
     }
     // Trigger the produce workflow

@@ -278,11 +278,6 @@ impl SourceChain {
             Some(range) => (Some(range.start), Some(range.end)),
             None => (None, None),
         };
-<<<<<<< HEAD
-        let mut elements = self.vault.conn()?.with_reader(|txn| {
-            let mut sql = "
-                SELECT DISTINCT 
-=======
         let author = self.author.clone();
         let mut elements = self
             .vault
@@ -291,7 +286,6 @@ impl SourceChain {
                 move |txn| {
                     let mut sql = "
                 SELECT DISTINCT
->>>>>>> cb5c41937... async readers
                 Header.hash AS header_hash, Header.blob AS header_blob
             "
                     .to_string();
@@ -415,10 +409,11 @@ impl SourceChain {
                     let (header, op_hash) =
                         UniqueForm::op_hash(op_type, h.expect("This can't be empty"))?;
                     let op_order = OpOrder::new(op_type, header.timestamp());
+                    let timestamp = header.timestamp();
                     // Put the header back by value.
                     h = Some(header);
                     // Collect the DhtOpLight, DhtOpHash and OpOrder.
-                    ops.push((op, op_hash, op_order));
+                    ops.push((op, op_hash, op_order, timestamp));
                 }
 
                 // Put the SignedHeaderHashed back together.
@@ -453,28 +448,13 @@ impl SourceChain {
                     ));
                 }
 
-<<<<<<< HEAD
-            for entry in entries {
-                insert_entry(txn, entry)?;
-            }
-            for header in headers {
-                insert_header(txn, header)?;
-            }
-            for (op, op_hash, op_order) in ops {
-                insert_op_lite(txn, op, op_hash.clone(), true, op_order)?;
-                set_validation_status(txn, op_hash, holochain_zome_types::ValidationStatus::Valid)?;
-            }
-            SourceChainResult::Ok(())
-        })?;
-=======
                 for entry in entries {
                     insert_entry(txn, entry)?;
                 }
                 for header in headers {
                     insert_header(txn, header)?;
                 }
-                for (op, op_hash, op_order, timestamp, visibility) in ops {
-                    let op_type = op.get_type();
+                for (op, op_hash, op_order, timestamp) in ops {
                     insert_op_lite(txn, op, op_hash.clone(), true, op_order, timestamp)?;
                     set_validation_status(
                         txn,
@@ -485,20 +465,11 @@ impl SourceChain {
                     // StoreEntry ops with private entries are never gossiped or published
                     // so we don't need to integrate them.
                     // TODO: Can anything every depend on a private store entry op? I don't think so.
-                    if !(op_type == DhtOpType::StoreEntry
-                        && visibility == Some(EntryVisibility::Private))
-                    {
-                        set_validation_stage(
-                            txn,
-                            op_hash,
-                            ValidationLimboStatus::AwaitingIntegration,
-                        )?;
-                    }
+                    
                 }
                 SourceChainResult::Ok(())
             })
             .await?;
->>>>>>> a19fa1999... all db writes async
         Ok(())
     }
 }
@@ -579,8 +550,9 @@ pub fn put_raw(
         let (h, op_hash) =
             UniqueForm::op_hash(op_type, header.take().expect("This can't be empty"))?;
         let op_order = OpOrder::new(op_type, h.timestamp());
+        let timestamp = h.timestamp();
         header = Some(h);
-        hashes.push((op_hash, op_order));
+        hashes.push((op_hash, op_order, timestamp));
     }
     let shh = SignedHeaderHashed::with_presigned(
         HeaderHashed::with_pre_hashed(header.expect("This can't be empty"), hash),
@@ -590,8 +562,8 @@ pub fn put_raw(
         insert_entry(txn, EntryHashed::from_content_sync(entry))?;
     }
     insert_header(txn, shh)?;
-    for (op, (op_hash, op_order)) in ops.into_iter().zip(hashes) {
-        insert_op_lite(txn, op, op_hash, true, op_order)?;
+    for (op, (op_hash, op_order, timestamp)) in ops.into_iter().zip(hashes) {
+        insert_op_lite(txn, op, op_hash, true, op_order, timestamp)?;
     }
     Ok(())
 }
@@ -663,20 +635,12 @@ pub async fn dump_state(
     vault: EnvRead,
     author: AgentPubKey,
 ) -> Result<SourceChainJsonDump, SourceChainError> {
-<<<<<<< HEAD
-    Ok(vault.conn()?.with_reader(|txn| {
-        let elements = txn
-            .prepare(
-                "
-                SELECT DISTINCT 
-=======
     Ok(vault
         .async_reader(move |txn| {
             let elements = txn
                 .prepare(
                     "
                 SELECT DISTINCT
->>>>>>> cb5c41937... async readers
                 Header.blob AS header_blob, Entry.blob AS entry_blob,
                 Header.hash AS header_hash
                 FROM Header
@@ -909,7 +873,7 @@ pub mod tests {
     //         store
     //             .genesis(fake_dna_hash(1), fake_agent_pubkey_1(), None)
     //             .await?;
-    //         arc.conn().unwrap().with_commit(|writer| store.flush_to_txn(writer))?;
+    //         arc.conn().unwrap().with_commit_sync(|writer| store.flush_to_txn(writer))?;
     //     }
     //
     //     {
@@ -925,7 +889,7 @@ pub mod tests {
     // //     Some(claim.clone())
     // // );
     //
-    //         arc.conn().unwrap().with_commit(|writer| chain.flush_to_txn(writer))?;
+    //         arc.conn().unwrap().with_commit_sync(|writer| chain.flush_to_txn(writer))?;
     //     }
     //
     //     {

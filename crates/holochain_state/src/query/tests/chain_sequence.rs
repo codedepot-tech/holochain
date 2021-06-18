@@ -107,7 +107,7 @@ async fn chain_sequence_functionality() -> SourceChainResult<()> {
         )?;
         arc.conn()
             .unwrap()
-            .with_commit(|mut writer| buf.flush_to_txn(&mut writer))?;
+            .with_commit_sync(|mut writer| buf.flush_to_txn(&mut writer))?;
     }
     let mut g = arc.conn().unwrap();
     g.with_reader(|mut reader| {
@@ -157,7 +157,7 @@ async fn chain_sequence_functionality() -> SourceChainResult<()> {
         )?;
         arc.conn()
             .unwrap()
-            .with_commit(|mut writer| buf.flush_to_txn(&mut writer))?;
+            .with_commit_sync(|mut writer| buf.flush_to_txn(&mut writer))?;
     }
     let mut g = arc.conn().unwrap();
     g.with_reader(|mut reader| {
@@ -225,7 +225,7 @@ async fn chain_sequence_head_moved_triggers_error() -> anyhow::Result<()> {
 
         arc1.conn()
             .unwrap()
-            .with_commit(|mut writer| buf.flush_to_txn(&mut writer))
+            .with_commit_sync(|mut writer| buf.flush_to_txn(&mut writer))
     });
 
     // Attempt to move the chain concurrently -- this one succeeds
@@ -256,7 +256,7 @@ async fn chain_sequence_head_moved_triggers_error() -> anyhow::Result<()> {
 
         arc2.conn()
             .unwrap()
-            .with_commit(|mut writer| buf.flush_to_txn(&mut writer))?;
+            .with_commit_sync(|mut writer| buf.flush_to_txn(&mut writer))?;
         tx2.send(()).unwrap();
         Result::<_, SourceChainError>::Ok(())
     });
@@ -311,7 +311,7 @@ async fn chain_sequence_head_moved_triggers_no_error_if_clean() -> anyhow::Resul
     )?;
     arc1.conn()
         .unwrap()
-        .with_commit(|mut writer| buf.flush_to_txn(&mut writer))?;
+        .with_commit_sync(|mut writer| buf.flush_to_txn(&mut writer))?;
 
     // Modify the chain without adding a header -- this succeeds
     let task1 = tokio::spawn(async move {
@@ -325,7 +325,7 @@ async fn chain_sequence_head_moved_triggers_no_error_if_clean() -> anyhow::Resul
 
         arc1.conn()
             .unwrap()
-            .with_commit(|mut writer| buf.flush_to_txn(&mut writer))
+            .with_commit_sync(|mut writer| buf.flush_to_txn(&mut writer))
     });
 
     // Add a header to the chain -- there is no collision, so this succeeds
@@ -342,7 +342,7 @@ async fn chain_sequence_head_moved_triggers_no_error_if_clean() -> anyhow::Resul
 
         arc2.conn()
             .unwrap()
-            .with_commit(|mut writer| buf.flush_to_txn(&mut writer))?;
+            .with_commit_sync(|mut writer| buf.flush_to_txn(&mut writer))?;
         tx2.send(()).unwrap();
         Result::<_, SourceChainError>::Ok(())
     });

@@ -24,7 +24,7 @@ use super::MIN_PUBLISH_INTERVAL;
 pub async fn get_ops_to_publish(
     agent: AgentPubKey,
     env: &EnvRead,
-    required_receipt_count: u32,
+    _required_receipt_count: u32,
 ) -> WorkflowResult<Vec<DhtOpHashed>> {
     // let earliest_allowed_time = SystemTime::now()
     //     .duration_since(UNIX_EPOCH)
@@ -96,200 +96,200 @@ pub async fn get_ops_to_publish(
     results
 }
 
-#[cfg(test)]
-mod tests {
-    use fixt::prelude::*;
-    use holo_hash::EntryHash;
-    use holo_hash::HasHash;
-    use holochain_sqlite::db::WriteManager;
-    use holochain_sqlite::prelude::DatabaseResult;
-    use holochain_state::prelude::insert_op;
-    use holochain_state::prelude::set_last_publish_time;
-    use holochain_state::prelude::set_receipt_count;
-    use holochain_state::prelude::test_cell_env;
-    use holochain_types::dht_op::DhtOpHashed;
-    use holochain_types::header::NewEntryHeader;
-    use holochain_zome_types::fixt::*;
-    use holochain_zome_types::EntryType;
-    use holochain_zome_types::EntryVisibility;
-    use holochain_zome_types::Header;
+// #[cfg(test)]
+// mod tests {
+//     use fixt::prelude::*;
+//     use holo_hash::EntryHash;
+//     use holo_hash::HasHash;
+//     use holochain_sqlite::db::WriteManager;
+//     use holochain_sqlite::prelude::DatabaseResult;
+//     use holochain_state::prelude::insert_op;
+//     use holochain_state::prelude::set_last_publish_time;
+//     use holochain_state::prelude::set_receipt_count;
+//     use holochain_state::prelude::test_cell_env;
+//     use holochain_types::dht_op::DhtOpHashed;
+//     use holochain_types::header::NewEntryHeader;
+//     use holochain_zome_types::fixt::*;
+//     use holochain_zome_types::EntryType;
+//     use holochain_zome_types::EntryVisibility;
+//     use holochain_zome_types::Header;
 
-    use crate::core::workflow::publish_dht_ops_workflow::DEFAULT_RECEIPT_BUNDLE_SIZE;
+//     use crate::core::workflow::publish_dht_ops_workflow::DEFAULT_RECEIPT_BUNDLE_SIZE;
 
-    use super::*;
+//     use super::*;
 
-    #[derive(Debug, Clone, Copy)]
-    struct Facts {
-        private: bool,
-        within_min_period: bool,
-        has_required_receipts: bool,
-        is_this_agent: bool,
-        is_authored: bool,
-        store_entry: bool,
-    }
+//     #[derive(Debug, Clone, Copy)]
+//     struct Facts {
+//         private: bool,
+//         within_min_period: bool,
+//         has_required_receipts: bool,
+//         is_this_agent: bool,
+//         is_authored: bool,
+//         store_entry: bool,
+//     }
 
-    struct Consistent {
-        this_agent: AgentPubKey,
-        required_receipt_count: u32,
-    }
+//     struct Consistent {
+//         this_agent: AgentPubKey,
+//         required_receipt_count: u32,
+//     }
 
-    struct Expected {
-        agent: AgentPubKey,
-        required_receipt_count: u32,
-        results: Vec<DhtOpHashed>,
-    }
+//     struct Expected {
+//         agent: AgentPubKey,
+//         required_receipt_count: u32,
+//         results: Vec<DhtOpHashed>,
+//     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn publish_query() {
-        observability::test_run().ok();
-        let env = test_cell_env();
-        let expected = test_data(&env.env().into());
-        let r = get_ops_to_publish(
-            &expected.agent,
-            &env.env().into(),
-            expected.required_receipt_count,
-        )
-        .unwrap();
-        assert_eq!(r, expected.results);
-    }
+//     #[tokio::test(flavor = "multi_thread")]
+//     async fn publish_query() {
+//         observability::test_run().ok();
+//         let env = test_cell_env();
+//         let expected = test_data(&env.env().into());
+//         let r = get_ops_to_publish(
+//             &expected.agent,
+//             &env.env().into(),
+//             expected.required_receipt_count,
+//         )
+//         .unwrap();
+//         assert_eq!(r, expected.results);
+//     }
 
-    fn create_and_insert_op(
-        env: &EnvRead,
-        facts: Facts,
-        consistent_data: &Consistent,
-    ) -> DhtOpHashed {
-        let this_agent = consistent_data.this_agent.clone();
-        let entry = Entry::App(fixt!(AppEntryBytes));
-        let mut header = fixt!(Create);
-        header.author = this_agent.clone();
-        header.entry_hash = EntryHash::with_data_sync(&entry);
-        if facts.private {
-            // - Private: true
-            header.entry_type = AppEntryTypeFixturator::new(EntryVisibility::Private)
-                .map(EntryType::App)
-                .next()
-                .unwrap();
-        } else {
-            // - Private: false
-            header.entry_type = AppEntryTypeFixturator::new(EntryVisibility::Public)
-                .map(EntryType::App)
-                .next()
-                .unwrap();
-        }
+//     fn create_and_insert_op(
+//         env: &EnvRead,
+//         facts: Facts,
+//         consistent_data: &Consistent,
+//     ) -> DhtOpHashed {
+//         let this_agent = consistent_data.this_agent.clone();
+//         let entry = Entry::App(fixt!(AppEntryBytes));
+//         let mut header = fixt!(Create);
+//         header.author = this_agent.clone();
+//         header.entry_hash = EntryHash::with_data_sync(&entry);
+//         if facts.private {
+//             // - Private: true
+//             header.entry_type = AppEntryTypeFixturator::new(EntryVisibility::Private)
+//                 .map(EntryType::App)
+//                 .next()
+//                 .unwrap();
+//         } else {
+//             // - Private: false
+//             header.entry_type = AppEntryTypeFixturator::new(EntryVisibility::Public)
+//                 .map(EntryType::App)
+//                 .next()
+//                 .unwrap();
+//         }
 
-        // - IsThisAgent: false.
-        if !facts.is_this_agent {
-            header.author = fixt!(AgentPubKey);
-        }
+//         // - IsThisAgent: false.
+//         if !facts.is_this_agent {
+//             header.author = fixt!(AgentPubKey);
+//         }
 
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let last_publish = if facts.within_min_period {
-            // - WithinMinPeriod: true.
-            now
-        } else {
-            // - WithinMinPeriod: false.
-            now - MIN_PUBLISH_INTERVAL
-        };
+//         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+//         let last_publish = if facts.within_min_period {
+//             // - WithinMinPeriod: true.
+//             now
+//         } else {
+//             // - WithinMinPeriod: false.
+//             now - MIN_PUBLISH_INTERVAL
+//         };
 
-        let required_receipt_count = if facts.has_required_receipts {
-            // - HasRequireReceipts: true.
-            consistent_data.required_receipt_count
-        } else {
-            // - HasRequireReceipts: false.
-            0
-        };
+//         let required_receipt_count = if facts.has_required_receipts {
+//             // - HasRequireReceipts: true.
+//             consistent_data.required_receipt_count
+//         } else {
+//             // - HasRequireReceipts: false.
+//             0
+//         };
 
-        let state = if facts.store_entry {
-            DhtOpHashed::from_content_sync(DhtOp::StoreEntry(
-                fixt!(Signature),
-                NewEntryHeader::Create(header.clone()),
-                Box::new(entry.clone()),
-            ))
-        } else {
-            DhtOpHashed::from_content_sync(DhtOp::StoreElement(
-                fixt!(Signature),
-                Header::Create(header.clone()),
-                Some(Box::new(entry.clone())),
-            ))
-        };
+//         let state = if facts.store_entry {
+//             DhtOpHashed::from_content_sync(DhtOp::StoreEntry(
+//                 fixt!(Signature),
+//                 NewEntryHeader::Create(header.clone()),
+//                 Box::new(entry.clone()),
+//             ))
+//         } else {
+//             DhtOpHashed::from_content_sync(DhtOp::StoreElement(
+//                 fixt!(Signature),
+//                 Header::Create(header.clone()),
+//                 Some(Box::new(entry.clone())),
+//             ))
+//         };
 
-        env.conn()
-            .unwrap()
-            .with_commit(|txn| {
-                let hash = state.as_hash().clone();
-                insert_op(txn, state.clone(), facts.is_authored).unwrap();
-                set_last_publish_time(txn, hash.clone(), last_publish).unwrap();
-                set_receipt_count(txn, hash, required_receipt_count).unwrap();
-                DatabaseResult::Ok(())
-            })
-            .unwrap();
-        state
-    }
+//         env.conn()
+//             .unwrap()
+//             .with_commit_sync(|txn| {
+//                 let hash = state.as_hash().clone();
+//                 insert_op(txn, state.clone(), facts.is_authored).unwrap();
+//                 set_last_publish_time(txn, hash.clone(), last_publish).unwrap();
+//                 set_receipt_count(txn, hash, required_receipt_count).unwrap();
+//                 DatabaseResult::Ok(())
+//             })
+//             .unwrap();
+//         state
+//     }
 
-    fn test_data(env: &EnvRead) -> Expected {
-        let mut results = Vec::new();
-        let cd = Consistent {
-            this_agent: fixt!(AgentPubKey),
-            required_receipt_count: DEFAULT_RECEIPT_BUNDLE_SIZE,
-        };
-        // We **do** expect any of these in the results:
-        // - Private: false.
-        // - WithinMinPeriod: false.
-        // - HasRequireReceipts: false.
-        // - IsThisAgent: true.
-        // - IsAuthored: true.
-        // - StoreEntry: true
-        let facts = Facts {
-            private: false,
-            within_min_period: false,
-            has_required_receipts: false,
-            is_this_agent: true,
-            is_authored: true,
-            store_entry: true,
-        };
-        let op = create_and_insert_op(env, facts, &cd);
-        results.push(op);
+//     fn test_data(env: &EnvRead) -> Expected {
+//         let mut results = Vec::new();
+//         let cd = Consistent {
+//             this_agent: fixt!(AgentPubKey),
+//             required_receipt_count: DEFAULT_RECEIPT_BUNDLE_SIZE,
+//         };
+//         // We **do** expect any of these in the results:
+//         // - Private: false.
+//         // - WithinMinPeriod: false.
+//         // - HasRequireReceipts: false.
+//         // - IsThisAgent: true.
+//         // - IsAuthored: true.
+//         // - StoreEntry: true
+//         let facts = Facts {
+//             private: false,
+//             within_min_period: false,
+//             has_required_receipts: false,
+//             is_this_agent: true,
+//             is_authored: true,
+//             store_entry: true,
+//         };
+//         let op = create_and_insert_op(env, facts, &cd);
+//         results.push(op);
 
-        // All facts are the same unless stated:
+//         // All facts are the same unless stated:
 
-        // - Private: true.
-        // - StoreEntry: false.
-        let mut f = facts;
-        f.private = true;
-        f.store_entry = false;
-        let op = create_and_insert_op(env, f, &cd);
-        results.push(op);
+//         // - Private: true.
+//         // - StoreEntry: false.
+//         let mut f = facts;
+//         f.private = true;
+//         f.store_entry = false;
+//         let op = create_and_insert_op(env, f, &cd);
+//         results.push(op);
 
-        // We **don't** expect any of these in the results:
-        // - Private: true.
-        let mut f = facts;
-        f.private = true;
-        create_and_insert_op(env, f, &cd);
+//         // We **don't** expect any of these in the results:
+//         // - Private: true.
+//         let mut f = facts;
+//         f.private = true;
+//         create_and_insert_op(env, f, &cd);
 
-        // - WithinMinPeriod: true.
-        let mut f = facts;
-        f.within_min_period = true;
-        create_and_insert_op(env, f, &cd);
+//         // - WithinMinPeriod: true.
+//         let mut f = facts;
+//         f.within_min_period = true;
+//         create_and_insert_op(env, f, &cd);
 
-        // - HasRequireReceipts: true.
-        let mut f = facts;
-        f.has_required_receipts = true;
-        create_and_insert_op(env, f, &cd);
+//         // - HasRequireReceipts: true.
+//         let mut f = facts;
+//         f.has_required_receipts = true;
+//         create_and_insert_op(env, f, &cd);
 
-        // - IsThisAgent: false.
-        let mut f = facts;
-        f.is_this_agent = false;
-        create_and_insert_op(env, f, &cd);
+//         // - IsThisAgent: false.
+//         let mut f = facts;
+//         f.is_this_agent = false;
+//         create_and_insert_op(env, f, &cd);
 
-        // - IsAuthored: false.
-        let mut f = facts;
-        f.is_authored = false;
-        create_and_insert_op(env, f, &cd);
+//         // - IsAuthored: false.
+//         let mut f = facts;
+//         f.is_authored = false;
+//         create_and_insert_op(env, f, &cd);
 
-        Expected {
-            agent: cd.this_agent.clone(),
-            required_receipt_count: cd.required_receipt_count,
-            results,
-        }
-    }
-}
+//         Expected {
+//             agent: cd.this_agent.clone(),
+//             required_receipt_count: cd.required_receipt_count,
+//             results,
+//         }
+//     }
+// }

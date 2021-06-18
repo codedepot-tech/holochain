@@ -326,7 +326,7 @@ mod tests {
         //         assert_eq!(headers, expected);
         //         arc.conn()
         //             .unwrap()
-        //             .with_commit(|writer| meta_buf.flush_to_txn(writer))
+        //             .with_commit_sync(|writer| meta_buf.flush_to_txn(writer))
         //             .unwrap();
         //     })
         // }
@@ -387,7 +387,7 @@ mod tests {
         //     });
         //     arc.conn()
         //         .unwrap()
-        //         .with_commit(|writer| meta_buf.flush_to_txn(writer))
+        //         .with_commit_sync(|writer| meta_buf.flush_to_txn(writer))
         //         .unwrap();
         // }
         // {
@@ -447,7 +447,7 @@ mod tests {
         //     });
         //     arc.conn()
         //         .unwrap()
-        //         .with_commit(|writer| meta_buf.flush_to_txn(writer))
+        //         .with_commit_sync(|writer| meta_buf.flush_to_txn(writer))
         //         .unwrap();
         // }
         // {
@@ -497,7 +497,7 @@ mod tests {
         //     });
         //     arc.conn()
         //         .unwrap()
-        //         .with_commit(|writer| meta_buf.flush_to_txn(writer))
+        //         .with_commit_sync(|writer| meta_buf.flush_to_txn(writer))
         //         .unwrap();
         // }
         // {
@@ -532,7 +532,7 @@ mod tests {
         // }
         // env.conn()
         //     .unwrap()
-        //     .with_commit(|writer| meta_buf.flush_to_txn(writer))
+        //     .with_commit_sync(|writer| meta_buf.flush_to_txn(writer))
         //     .unwrap();
         todo!("Write as fact based sql test")
     }

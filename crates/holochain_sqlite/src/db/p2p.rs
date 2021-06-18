@@ -88,7 +88,7 @@ pub async fn p2p_put_all(
 
 fn tx_p2p_put(txn: &mut Transaction, record: P2pRecord) -> DatabaseResult<()> {
     txn.execute(
-        sql_p2p::INSERT,
+        P2P_INSERT,
         named_params! {
             ":agent": &record.agent.0,
 
@@ -115,7 +115,7 @@ pub async fn p2p_prune(db: &DbWrite) -> DatabaseResult<()> {
             .unwrap()
             .as_millis() as u64;
 
-        txn.execute(sql_p2p::PRUNE, named_params! { ":now": now })?;
+        txn.execute(P2P_PRUNE, named_params! { ":now": now })?;
         DatabaseResult::Ok(())
     })
     .await?;
@@ -215,7 +215,7 @@ struct P2pRecord {
 }
 
 type SplitRange = (u32, u32);
-fn split_arc(arc: &DhtArc) -> (Option<SplitRange>, Option<SplitRange>) {
+pub fn split_arc(arc: &DhtArc) -> (Option<SplitRange>, Option<SplitRange>) {
     let mut storage_1 = None;
     let mut storage_2 = None;
 

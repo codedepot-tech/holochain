@@ -82,7 +82,7 @@ fn set_authored_to_pending_integration(
         )?)
     })?;
     if is_authored {
-        conn.with_commit(|txn| {
+        conn.with_commit_sync(|txn| {
             txn.execute(
                 "
                 UPDATE DhtOp
