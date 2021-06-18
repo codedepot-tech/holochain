@@ -4,7 +4,7 @@ use rusqlite::Connection;
 use crate::db::DbKind;
 
 pub static SCHEMA_CELL: Lazy<Schema> = Lazy::new(|| {
-    let migration_0 = Migration::initial(include_str!("schema/cell/initial.sql"));
+    let migration_0 = Migration::initial(include_str!("sql/cell/schema.sql"));
 
     Schema {
         current_index: 0,
